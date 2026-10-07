@@ -1,0 +1,554 @@
+*fltui.nvim.txt*				     Another UI Lib for Neovim
+
+			      FLTUI.NVIM
+
+A library that provides simple yet useful primitives for widget development.
+It also provides replacements for `vim.ui.input` and `vim.ui.select`. 
+
+				       Type |gO| to see the table of contents.
+
+==============================================================================
+1. Requierements
+
+- neovim >= 0.11.0
+
+OPTIONAL
+
+- telescope-fzf-native: for "fuzzy" search when using |fltui.select|.
+
+==============================================================================
+2. Startup Configuration					*fltui-config*
+
+Use the following variables to change plugin behavior on startup.
+
+						      *g:fltui_replace_select* 
+Set `g:fltui_replace_select` to 1 to replace |vim.ui.input()| during startup. 
+>vim
+    let g:fltui_replace_input=1
+<
+						       *g:fltui_replace_input* 
+Set `g:fltui_replace_select` to 1 to replace |vim.ui.select()| during startup.
+>vim
+    let g:fltui_replace_select=1
+<
+
+==============================================================================
+3. Input							 *fltui.input*
+
+To replace |vim.ui.input| during startup, see `g:fltui_replace_input`.
+
+To access this module directly: >lua
+    local input = require('fltui.input')
+<
+
+MODULE
+
+input.input({opts}, {on_confirm})			 *fltui.input.input()*
+    Provides a floating textbox to prompt the user for input.
+    See |vim.ui.input|.
+
+
+==============================================================================
+4. Select							*fltui.select*
+
+To replace |vim.ui.select| during startup, see `g:fltui_replace_select`.
+
+Use this module to build selection interfaces in lua: 
+>lua
+    local select = require('fltui.select')
+    -- use to build a selection ui
+<
+
+CONFIGURATION						 *fltui.select-config*
+
+						*g:fltui_select_search*
+Use the following to change |fltui.select| default search behavior.
+>vim
+    " Set the following to activate searching by default on selection ui.
+    let g:fltui_select_search={'method':'fuzzy','filter':1}
+<
+
+MODULE
+
+`select.Select`
+    Base metatable that builds into a selection window.
+
+    Can be customized by setting this as a metatable of a metatable.
+>lua
+	local select = require('fltui.select')
+	local my_selector = {
+	  -- new function is required 
+	  new = function(items, opts, on_choice, actions) end
+	  -- override a couple of methods
+	}
+	my_selector = select.extend(select.Select, my_selector)
+	-- ...
+	local newsel = my_selector:new(items, {}, on_choice)
+<
+
+    Fields: ~
+      • {items}			(`any[]`) Items to select from.
+      • {opts}			(`table`) Options for the current selection.
+      • {on_choice}		(`fun(item: any?, index: integer?)`) Callback.
+      • {actions}		(`table`) Action map.
+      • {buf}			(`integer`) Selection buffer-id.
+      • {win}			(`integer`) Selection window-ID.
+      • {pwin}			(`integer`) Selection preview window-ID.
+      • {custom_index}		(`string?`) Pattern which finds the index of
+				an item entry.
+      • {ns}			(`integer`) Namespace of the selection buffer.
+      • {super}			(`fltui.select`) Super class object.
+      • {linewidth_excess}	(`fun(linew: integer):integer`) Returns the
+				amount of cells the passed width exceeds.
+      • {item_highlight}	(`fun(linenr: integer, line: string)`)
+				Highlights the line in the selection buffer.
+      • {cursorline_highlight}	(`fun(linenr: integer, line: string)`)
+				Highlights the cursor line in the selection
+				buffer.
+      • {get_width}		(`fun(): integer`) Gets the maximum width of
+				the list of item lines.
+      • {calc_height}		(`fun(): integer`) Calculates the minimum
+				height needed to display all items.
+      • {update_win_width}	(`fun(wins: integer[])`) Updates the selection
+				and other windows width to the current maximum
+				width.
+      • {buf_set_hl}		(`fun(start: integer?, end_: integer?)`)
+				Applies item_highlight() or
+				cursorline_highlight() to the specified range
+				of item lines in the selection window.
+      • {buf_cul}		(`fun(linenr: integer)`) Sets or adds the
+				specified line to the set of currently
+				selected lines.
+      • {preview_item}		(`fun(linenr: integer)`) Previews the
+				specified item.
+      • {buf_set_lines}		(`fun(lines: string[], start: integer?, end_: integer?`)
+				Sets the lines of the selection buffer. If a
+				range is specified, the items in the range
+				will be replaced with `lines`.
+      • {format_item}		(`fun(item: any, index: integer): string`)
+				Formats the specified item with the
+				user-supplied formatting function or
+				|tostring()|.
+      • {process_format}	(`fun(index: integer): string`) Calls
+				{format_item} to format the specified. Can
+				change the line as required.
+      • {update_window}		(`fun(line_count: integer)`) Updates the
+				selection window with the needes size to view
+				all items. Keeps the cursor in the selected
+				line if there are items to display.
+      • {action_result}		(`fun(result: fltui.select.action_result?)`)
+				Dispatches the action result to the
+				corresponding action method.
+      • {action_replace}	(`fun(result: fltui.select.action_result.replace)`)
+				Replaces the items in the selection window
+				with the ones in the result data.
+      • {action_update}		(`fun(result: fltui.select.action_result.update)`)
+				Updates the items in the specified range in
+				the selection window. This involves formatting
+				the items again and updating highlights.
+      • {action_reload}		(`fun(result: fltui.select.action_result.reload)`)
+				Reloads the whole selection window. May change
+				the current hightlighted entry.
+      • {action_close}		(`fun(result: fltui.select.action_result.close)`)
+				Closes the selection window. Useful when the
+				action already does something with the current
+				selection.
+      • {process_items}		(`fun(first: integer?, last: integer?): string[]`)
+				Processes all of a range of items. This
+				involves formatting each item, calculate
+				window final size and set item highlights.
+      • {item_index}		(`fun(linenr: integer)`) Gets the index of the
+				item at the specified window line number.
+      • {item_linenr}		(`fun(index: integer)`) Gets the line number
+				of the item at the specified index.
+      • {create_buf}		(`fun()`) Creates the selection buffer.
+      • {select}		(`fun()`) Selects the specified items. Closes
+				the window and calls {on_choice}.
+      • {show}			(`fun(enter: boolean)`) Creates the selection
+				buffer, processes the items, opens the
+				floating window and maps the user actions.
+      • {open_win}		(`fun(enter: boolean)`) Opens the floating
+				window that will show the selection bufffer.
+      • {get_action_buffer}	(`fun(): integer`) Gets the buffer which will
+				interact to select an item.
+      • {remove_actions}	(`fun()`) Removes the mappings to the user
+				actions.
+      • {install_actions}	(`fun()`) Sets the mappings to the user
+				actions.
+      • {new}			(`fun(items: any[], opts: table, on_choice: fun(item: any?, index: integer?), actions: fltui.select.action_map?): fltui.select`)
+				Creates a new selection object.
+
+
+select.select({items}, {opts}, {on_choice}, {actions})*fltui.select.select()*
+    Provides a floating window to prompt the user to pick from a list of
+    items. For default values see |vim.ui.input()|.
+
+    Parameters: ~
+      • {items}      (`any[]`) Arbitrary items.
+      • {opts}       (`table`) Options
+                     • {format_item}? (`fun(item: any):string`, default:
+                       `tostring`) Decides how to format items when displayed
+                       in the picker.
+                     • {kind}? (`string`) Arbitrary hint string indicating the
+                       item shape. The picker may wish to use this to infer
+                       the structure or semantics of `items`, or the context
+                       in which select() was called.
+                     • {preview_item}?
+                       (`fun(item: any):{buf?:integer, pos?:[integer,integer], pos_end?:[integer,integer]}`)
+                       Decides how to preview an item by preparing a scratch
+                       buffer with the item details (including text,
+                       highlighting, etc.). When the picker decides to
+		       "preview" an item, it should call this function. Must
+		       return a table with these keys:
+                       • {buf}? (`integer`) Buffer containing the previewed
+                         item details, or nil if no preview should be shown.
+                       • {pos}? (`[integer, integer]`) Specifies the
+                         (1,0)-indexed cursor position in the preview buffer.
+                         If nil, should be treated as `{ 1, 0 }`.
+                       • {pos_end}? (`[integer, integer]`) Specifies the
+                         (1,0)-indexed (end-exclusive) end position of the
+                         preview range. If nil, no range is intended for a
+                         preview.
+                     • {prompt}? (`string`, default: `"Select one of:"`)
+                       Prompt text.
+      • {on_choice}  (`fun(item: T?, idx: integer?)`) Called once the user
+                     made a choice. `idx` is the 1-based index of `item`
+                     within `items`, or `nil` if the user aborted the dialog.
+      • {actions}    (`fltui.select.action_map?`) Maps keys to use in normal
+		     mode to additional {on_choice}-like functions. See
+		     |fltui.select.action_map|.
+
+
+select.extend({selector}, {override})		 *fltui.select.extend()*
+    Extens {selector} with {override}. This function ensures that
+    |fltui.select.Select| is reachable using {super} field.
+
+    Parameters: ~
+      • {selector}: (`fltui.select.Select`) Base table to override.
+      • {override}: (`table`) Overriden functions for select.
+    
+    Return: ~
+      (`table`) A `Select` like table that can be used to create new selectors
+	      with the specified overrides.
+
+*fltui.select.action_map*
+    Maps keys to actions for items on the lists.
+
+    Fields ~
+      • {string}    Defines a mapping.
+		    • (`fun(items: any[], indexes: integer[]): fltui.select.action_result?`)
+		      Function that will be called. Contains the currently
+		      selected items. Returns a result object. See
+		      |fltui.select.action_result|.
+
+*fltui.select.action_result*
+    Action result data.
+
+    Fields ~
+      • {type}	     (`"reload"|"replace"|"update"|"close"`) Defines the type of
+		     the result.
+		     • `"reload"`  Reloads the selector.
+		     • `"replace"` Starts a new selection.
+		     • `"update"`  Updates the selected items. 
+		     • `"close"`   Closes the selector.
+      • {preselect}  (`integer?`) Moves the selection to the item with the
+		     specified index. Applies to `"reload"` and `"update"`.
+      • {items}	     (`any[]`) New items to select. Applies to `"replace"`.
+      • {opts}	     (`table?`) Replace options. Applies to `"replace"`.
+      • {on_choice}  (`fun(item: T?, idx: integer?)?`) Changes the {on_choice}
+		     callback to this one. Applies to `"replace"`.
+      • {actions}    (`fltui.select.action_map?`) Update/replace actions.
+		     Applies to `"replace"`.
+
+==============================================================================
+5. Autocomplete							  *fltui.acmp*
+
+This library also contains a very simple autocompleter.
+
+Example: >lua
+  local buf = ...
+  local completer = function(word, line, column)
+    -- 'word' will be current word under the cursor until cursor position
+    -- 'line' is the current line
+    -- 'column' is the position of the cursor in the line
+    -- this function should return the possible completion items
+  end
+  require('fltui.acmp').install(buf, completer)
+<
+
+MODULE
+
+acmp.find_word({str}, {pos}, {pattern}, {init})	      *fltui.acmp.find_word()*
+    Find a complete word in {string} at byte {pos}.
+
+    Returns indices suitable for |string.sub()|.
+
+    Parameters: ~
+      • {str}	  (`string`) The string to find the word from.
+      • {pos}	  (`integer`) The expected word position.
+      • {pattern} (`string?`) Pattern to separate words. Defaults to `"%s"`.
+      • {init}	  (`integer?`) Start search from this position.
+
+    Return (multiple): ~
+      (`integer`) Start byte of found word, or 1.
+      (`integer`) End byte of found word, or 0.
+
+
+acmp.col_word({strline}, {index}, {wordpat})	       *fltui.acmp.col_word()*
+    Extracts a word from a string at the specified location.
+
+    A word is defined as the set of characters that are surrounded by
+    whitespace characters.
+    If {wordpat} is given, the word is extracted using this pattern, after
+    finding the initial one.
+
+    Parameters: ~
+      • {strline} (`string`) The string to extract the word from.
+      •	{index}	  (`integer`) Position to get the word from.
+      •	{wordpat} (`string?`) Additional pattern to match word.
+
+    Return (multiple): ~
+      (`integer`) Start byte of found word.
+      (`integer`) End byte of found word.
+
+
+acmp.install({buf}, {completer}, {opts})		*fltui.acmp.install()*
+    Installs a word autocompleter in the specified buffer. Completion words
+    are gathered from {completer} function.
+
+    Parameters: ~
+      • {buf}	    (`integer`) Buffer id.
+      • {completer} (`fun(word: string, line: string, col: integer): string[]`)
+		    Completer function.
+      • {opts}	    (`table?`) Additional options:
+		    • filter (`'fuzzy'|'match'|false|nil`) Defines if and how
+		      the entries from {completer} function may be filtered.
+		    • triggerkey (`string?`) Creates a mapping that will
+		      trigger autocomplete when this key is pressed. It will
+		      also map its <S-key> as well.
+		    • getword (`fun(line: string, col: number): number, number|nil`)
+		      Allows the redefinition of the word processing function.
+
+
+==============================================================================
+6. Scrollbar							  *fltui.scrb*
+
+The scrollbar is a simple widget that allows the user to see where the
+viewport currently is in the window in regards to the full buffer.
+
+To add this scrollbar to a buffer do: >lua
+    
+    local scrb = require('fltui.scrb')
+    local scrbid = scrb.add_vertical_scrollbar(vim.api.nvim_get_current_win())
+<
+Use the {id} returned by |scrb.add_vertical_scrollbar()| is the |window-ID|
+that the scrollbar is using for display.
+
+The scrollbar should update on its own by following the cursor position of the
+given window. Use |scrb.update_scrollbar()| to force update its position.
+
+
+MODULE
+
+
+scrb.add_vertical_scrollbar({win})	 *fltui.scrb.add_vertical_scrollbar()*
+    Adds a scrollbar to the specified window.
+
+    Parameters: ~
+      • {win}	(`integer`) Valid |window-ID| or 0, for the current window.
+
+    Return: ~
+      (`integer`) |window-ID| of the scrollbar.
+
+
+scrb.update_scrollbar({scrbid})		*fltui.scrb.update_scrollbar()*
+    Updates the scrollbar position for the scrollbar with id {scrbid}.
+
+    Parameters: ~
+      • {scrbid}  (`integer`) Valid scrollbar window-ID.
+
+
+==============================================================================
+7. "Proxied" Cursor Movement				      *fltui.movement*
+
+Helper which allows to programatically move the cursor or viewport of a
+specified window
+
+
+*fltui.move*
+   
+   Fields: ~
+    • {line_down}	(`function`) Moves cursor |v:count| lines down.
+    • {line_down_wrap}	(`fun(): boolean`) Moves cursor |v:count| lines down.
+			Wraps to top after reaching last line.
+    • {line_up}		(`function`) Moves cursor |v:count| lines up.
+    • {line_up_wrap}	(`fun(): boolean`) Moves cursor |v:count| lines up.
+			Wraps to top after reaching last line.
+    • {screen_down}	(`function`) Scrolls window |v:count| lines down.
+    • {screen_up}	(`function`) Scrolls window |v:count| lines up.
+    • {to_top}		(`function`) Scrolls window |v:count| lines up or to
+			first line.
+    • {to_bottom}	(`function`) Scrolls window |v:count| lines down or to
+			last line.
+    • {page_down}	(`function`) Scrolls window |v:count| or 'scroll'
+			lines down.
+    • {page_up}		(`function`) Scrolls window |v:count| or 'scroll'
+			lines up.
+
+
+MODULE
+
+
+movement.proxy_to({win})			   *fltui.movement.proxy_to()*
+    Creates a |fltui.move| object with callables that move the cursor or scroll
+    the specified window.
+
+    Parameters: ~
+      • {win}	(`integer|fun():integer`) Window-ID or function that returns
+		a |window-ID| to proxy the movements to. Calls
+		|movement.proxy_to_callable()| if {win} is callable. 
+
+    Return: ~
+      (`fltui.move`) See |fltui.move|.
+
+
+movement.proxy_to_callable({fun})	  *fltui.movement.proxy_to_callable()*
+    Creates a |fltui.move| object with callables tha move the cursor or scroll
+    the window specified by the |window-ID| returned from executing the
+    specified {fun}.
+
+    Parameters: ~
+      • {fun}	(`fun(): integer`) Function returning the |window-ID| to proxy
+		the movements to.
+
+    Return: ~
+      (`fltui.move`) See |fltui.move|.
+
+
+==============================================================================
+8. Library Functions						  *fltui-util*
+
+Functions to help build UI behaviors.
+
+To access the module in lua: >lua
+      local util = require('fltui.util')
+      --...
+<
+
+MODULE
+
+
+fltui.editor_height()				       *fltui.editor_height()*
+    Gets the current "usable" editor height, that is, accouting statusline and
+    cmdheight used rows.
+
+    Return: ~
+      (`integer`) Editor rows without 'statusline' row or 'cmdheight'.
+
+
+fltui.create_wipe_buf({name}, {buftype})	     *fltui.create_wipe_buf()*
+    Creates a scratch buffer, with the specified {name} and 'buftype'.
+
+    Parameters: ~
+      • {name}	  (`string`) Buffer name.
+      • {buftype} (`string?`) Set 'buftype' for the specified buffer.
+
+    Return: ~
+      (`intger`) Buffer-id.
+
+
+						   *fltui.create_prompt_buf()*
+fltui.create_prompt_buf({name}, {prompt}, {on_cr})
+    Creates a prompt buffer, with the specified {name}, {prompt} (see
+    |prompt_setprompt()|) and {callback} (see |prompt_setcallback()|).
+
+    Parameters: ~
+      • {name}	    (`string`) Prompt buffer name.
+      • {prompt}    (`string?`) Prompt buffer prompt. See |prompt_setprompt()|.
+      • {callback}  (`function?`) Prompt buffer callback. See
+		    |prompt_setcallback()|.
+
+    Return: ~
+      (`integer`) Buffer-id.
+
+
+fltui.close_on_leave({win}, {opts})		      *fltui.close_on_leave()*
+    Configures autocommands to close the specified {win} when it is no longer
+    focused.
+    If {opts} is given, it can force-close the buffer held or it the window
+    can also be closed if the buffer changes.
+
+    Parameters: ~
+      • {win}	(`integer`) Window to close. See |window-ID|.
+      • {opts}	(`table?`) Optional options table.
+		• force: (`boolean?`) Force close window.
+		• bufchange: (`boolean?`) Close if the current buffer changes.
+
+
+					      *fltui.close_on_leave_allowed()*
+fltui.close_on_leave_allowed({win}, {allowed})
+    Specifies allowed |window-ID|s to which current focus may change without
+    closing {win}.
+
+    Parameters: ~
+      •	{win}	  (`integer`) Window to close.
+      •	{allowed} (`integer|integer[]`) |window-ID|s that will not make {win}
+		  close if focused.
+
+
+					  *fltui.close_on_leave_ignore_call()*
+fltui.close_on_leave_ignore_call({win}, {fun})
+    Use this function to allow {win} to be kept open during {fun} execution.
+
+    Parameters: ~
+      • {win}	(`integer`) Window to be closed.
+      • {fun}	(`function`) Function to execute. {win} will not be
+		automatically closed.
+
+
+fltui.close_on_buf_change({win}, {opts})	 *fltui.close_on_buf_change()*
+    Configures autocommands to close {win} only if its buffer changes.
+
+    Parameters: ~
+      • {win}	  (`integer`) |window-ID| to configure.
+      • {opts}	  (`table?`) Additional options. Keys:
+		  • force: (`boolean?`) Force close buffer on window close.
+
+
+fltui.center({win}, {offset})				      *fltui.center()*
+    Centers the specified floating {win} regarding its relative value. If
+    {offset} is given, it is applied after centering.
+
+    Parameters: ~
+      • {win}	  (`integer`) |window-ID| to center.
+      • {offset}  (`[number|fun(): number, number|fun(): number]?`) A 2-tuple
+		  indicating how to offset the window after centering it.
+    
+    Overloads: ~
+      •	`fun(wins: integer[], offsets: [number|fun(): number, number|fun(): number][])`
+
+
+fltui.keep_centered({win}, {offset})		       *fltui.keep_centered()*
+    Configures autocommands to keep the specified floating window centered for
+    resize events.
+
+    Parameters: ~
+      • {win}	  (`integer`) |window-ID| to center.
+      • {offset}  (`[number|fun(): number, number|fun(): number]?`) A 2-tuple
+		  indicating how to offset the window after centering it.
+
+
+fltui.no_scrolloff({win})				*fltui.no_scrolloff()*
+    Use during |WinResized-event| to avoid showing after the last line in the
+    buffer.
+    Returns `true` if the window scroll was modified.
+    Does not work in |Insert-mode|.
+
+    Parameters: ~
+      • {win}	  (`integer`) |window-ID| of specified window.
+
+    Return: ~
+      (`boolean`) `true` if the window scroll was adjusted, `false` otherwise.
+      
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
