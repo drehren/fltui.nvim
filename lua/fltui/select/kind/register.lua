@@ -13,20 +13,42 @@ local buf_set_extmark = vim.api.nvim_buf_set_extmark
 local M = {}
 M.__index = M
 
-function M:format_item(item)
+function M:process_format(index)
+    local item = self.items[index]
     local regcont = vim.fn.getreg(item):gsub('\n', '^J')
-    local line = ''
-    if self.regtype[item] ~= '' and regcont ~= '' then
-        line = self.linefmt:format(item, self.regtype[item], regcont)
+    if self.regtype[index] ~= '' and regcont ~= '' then
+        return self.linefmt:format(item, self.regtype[index], regcont)
     end
-    return line
+    return ''
+end
+
+function M:process_items(first, last)
+    local lines = self.super.process_items(self, first, last)
+    local e = 1
+    for i = 1, #lines do
+        if lines[i] == '' then
+            lines[e] = lines[i + 1]
+        end
+        if lines[e] ~= '' then
+            e = e + 1
+        end
+    end
+    for i = e, #lines do
+        lines[i] = nil
+    end
+    self._lc = #lines
+    return lines
+end
+
+function M:calc_height()
+    return self._lc or #self.items
 end
 
 local function hl(self, linenr, line)
     local ext = {}
-    ext.end_col = 5
+    ext.end_col = 6
     ext.hl_group = numberid
-    buf_set_extmark(self.buf, self.ns, linenr - 1, 3, ext)
+    buf_set_extmark(self.buf, self.ns, linenr - 1, 4, ext)
 
     ext.hl_group = spkeyid
     for s, e in line:gmatch('()^J()') do
@@ -45,15 +67,27 @@ function M:cursorline_highlight(linenr, line)
     self.super.cursorline_highlight(self, linenr, line)
 end
 
+function M:open_win(enter)
+    self.super.open_win(self, enter)
+
+    vim.api.nvim_win_set_config(self.win, {
+        anchor = 'SW',
+        relative = 'editor',
+        col = 0,
+        row = require('fltui.util').editor_height(),
+        border = 'single',
+    })
+end
+
 function M:new(items, opts, on_choice, actions)
     local sel = self.super:new(items, opts, on_choice, actions) --[[@as fltui.select.kind.register]]
 
-    sel.linefmt = '"%s  %s  %s'
-    sel.custom_index = ' ..'
+    sel.linefmt = ' "%s  %s  %s'
+    sel.custom_index = '%s*".  '
 
     sel.regtype = {}
-    for _, item in ipairs(sel.items) do
-        sel.regtype[item] = mode2regtype[vim.fn.getregtype(item):sub(1, 1)]
+    for i, item in ipairs(sel.items) do
+        sel.regtype[i] = mode2regtype[vim.fn.getregtype(item):sub(1, 1)]
     end
 
     return setmetatable(sel, self)
