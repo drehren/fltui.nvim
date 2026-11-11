@@ -98,84 +98,98 @@ MODULE
 				an item entry.
       • {ns}			(`integer`) Namespace of the selection buffer.
       • {super}			(`fltui.select`) Super class object.
-      • {linewidth_excess}	(`fun(linew: integer):integer`) Returns the
-				amount of cells the passed width exceeds.
-      • {item_highlight}	(`fun(linenr: integer, line: string)`)
+      • {linewidth_excess}	(`fun(self: fltui.select, linew: integer):integer`)
+				Returns the amount of cells the passed width
+				exceeds.
+      • {item_highlight}	(`fun(self: fltui.select, linenr: integer, line: string)`)
 				Highlights the line in the selection buffer.
-      • {cursorline_highlight}	(`fun(linenr: integer, line: string)`)
+      • {cursorline_highlight}	(`fun(self: fltui.select, linenr: integer, line: string)`)
 				Highlights the cursor line in the selection
 				buffer.
-      • {get_width}		(`fun(): integer`) Gets the maximum width of
-				the list of item lines.
-      • {calc_height}		(`fun(): integer`) Calculates the minimum
-				height needed to display all items.
-      • {update_win_width}	(`fun(wins: integer[])`) Updates the selection
-				and other windows width to the current maximum
-				width.
-      • {buf_set_hl}		(`fun(start: integer?, end_: integer?)`)
+      • {get_width}		(`fun(self: fltui.select): integer`) Gets the
+				maximum width of the list of item lines.
+      • {calc_height}		(`fun(self: fltui.select): integer`) Calculates
+				the minimum height needed to display all
+				items.
+      • {update_win_width}	(`fun(self: fltui.select, wins: integer[])`)
+				Updates the selection and other windows width
+				to the current maximum width.
+      • {buf_set_hl}		(`fun(self: fltui.select, start: integer?, end_: integer?)`)
 				Applies item_highlight() or
 				cursorline_highlight() to the specified range
 				of item lines in the selection window.
-      • {buf_cul}		(`fun(linenr: integer)`) Sets or adds the
-				specified line to the set of currently
-				selected lines.
-      • {preview_item}		(`fun(linenr: integer)`) Previews the
-				specified item.
-      • {buf_set_lines}		(`fun(lines: string[], start: integer?, end_: integer?`)
+      • {buf_cul}		(`fun(self: fltui.select, linenr: integer)`)
+				Sets or adds the specified line to the set of
+				currently selected lines.
+      • {preview_item}		(`fun(self: fltui.select, linenr: integer)`)
+				Previews the specified item.
+      • {buf_set_lines}		(`fun(self: fltui.select, lines: string[], start: integer?, end_: integer?`)
 				Sets the lines of the selection buffer. If a
 				range is specified, the items in the range
 				will be replaced with `lines`.
-      • {format_item}		(`fun(item: any, index: integer): string`)
+      • {format_item}		(`fun(self: fltui.select, item: any, index: integer): string`)
 				Formats the specified item with the
 				user-supplied formatting function or
 				|tostring()|.
-      • {process_format}	(`fun(index: integer): string`) Calls
-				{format_item} to format the specified. Can
-				change the line as required.
-      • {update_window}		(`fun(line_count: integer)`) Updates the
-				selection window with the needes size to view
-				all items. Keeps the cursor in the selected
-				line if there are items to display.
-      • {action_result}		(`fun(result: fltui.select.action_result?)`)
+      • {process_format}	(`fun(self: fltui.select, index: integer): string`)
+				Calls {format_item} to format the specified.
+				Can change the line as required.
+      • {update_window}		(`fun(self: fltui.select, line_count: integer)`)
+				Updates the selection window with the needes
+				size to view all items. Keeps the cursor in
+				the selected line if there are items to
+				display.
+      • {action_result}		(`fun(self: fltui.select, result: fltui.select.action_result?)`)
 				Dispatches the action result to the
 				corresponding action method.
-      • {action_replace}	(`fun(result: fltui.select.action_result.replace)`)
+      • {action_replace}	(`fun(self: fltui.select, result: fltui.select.action_result.replace)`)
 				Replaces the items in the selection window
 				with the ones in the result data.
-      • {action_update}		(`fun(result: fltui.select.action_result.update)`)
+      • {action_update}		(`fun(self: fltui.select, result: fltui.select.action_result.update)`)
 				Updates the items in the specified range in
 				the selection window. This involves formatting
 				the items again and updating highlights.
-      • {action_reload}		(`fun(result: fltui.select.action_result.reload)`)
+      • {action_reload}		(`fun(self: fltui.select, result: fltui.select.action_result.reload)`)
 				Reloads the whole selection window. May change
 				the current hightlighted entry.
-      • {action_close}		(`fun(result: fltui.select.action_result.close)`)
+      • {action_close}		(`fun(self: fltui.select, result: fltui.select.action_result.close)`)
 				Closes the selection window. Useful when the
 				action already does something with the current
 				selection.
-      • {process_items}		(`fun(first: integer?, last: integer?): string[]`)
+      • {process_items}		(`fun(self: fltui.select, first: integer?, last: integer?): string[]`)
 				Processes all of a range of items. This
 				involves formatting each item, calculate
 				window final size and set item highlights.
-      • {item_index}		(`fun(linenr: integer)`) Gets the index of the
-				item at the specified window line number.
-      • {item_linenr}		(`fun(index: integer)`) Gets the line number
-				of the item at the specified index.
-      • {create_buf}		(`fun()`) Creates the selection buffer.
-      • {select}		(`fun()`) Selects the specified items. Closes
-				the window and calls {on_choice}.
-      • {show}			(`fun(enter: boolean)`) Creates the selection
-				buffer, processes the items, opens the
-				floating window and maps the user actions.
-      • {open_win}		(`fun(enter: boolean)`) Opens the floating
-				window that will show the selection bufffer.
-      • {get_action_buffer}	(`fun(): integer`) Gets the buffer which will
-				interact to select an item.
-      • {remove_actions}	(`fun()`) Removes the mappings to the user
-				actions.
-      • {install_actions}	(`fun()`) Sets the mappings to the user
-				actions.
-      • {new}			(`fun(items: any[], opts: table, on_choice: fun(item: any?, index: integer?), actions: fltui.select.action_map?): fltui.select`)
+      • {item_index}		(`fun(self: fltui.select, linenr: integer)`)
+				Gets the index of the item at the specified
+				window line number.
+      • {item_linenr}		(`fun(self: fltui.select, index: integer)`)
+				Gets the line number of the item at the
+				specified index.
+      • {create_buf}		(`fun(self: fltui.select)`) Creates the
+				selection buffer.
+      • {select}		(`fun(self: fltui.select)`) Selects the
+				specified items. Closes the window and calls
+				{on_choice}.
+      • {show}			(`fun(self: fltui.select, enter: boolean)`)
+				Creates the selection buffer, processes the
+				items, opens the floating window and maps the
+				user actions.
+      • {create_win}		(`fun(self: fltui.select, buf: integer, enter: boolean, config: win_config)`)
+				Creates the window that will hold the item
+				entries. Should call {add_win_behaviors}.
+      • {open_win}		(`fun(self: fltui.select, enter: boolean)`)
+				Opens the floating window that will show the
+				selection bufffer.
+      • {add_win_behaviors}	(`fun(win: integer)`) Used to add different
+				behavior for the specified window.
+      • {get_action_buffer}	(`fun(self: fltui.select): integer`) Gets the
+				buffer which will interact to select an item.
+      • {remove_actions}	(`fun(self: fltui.select)`) Removes the
+				mappings to the user actions.
+      • {install_actions}	(`fun(self: fltui.select)`) Sets the mappings
+				to the user actions.
+      • {new}			(`fun(self: fltui.select, items: any[], opts: table, on_choice: fun(item: any?, index: integer?), actions: fltui.select.action_map?): fltui.select`)
 				Creates a new selection object.
 
 

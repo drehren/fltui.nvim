@@ -5,6 +5,8 @@ local mode2regtype = { [''] = 'b', v = 'c', V = 'l' }
 local numberid = get_hl_id_by_name('@number')
 local spkeyid = get_hl_id_by_name('SpecialKey')
 
+local aug = vim.api.nvim_create_augroup('fltui.select.register', {})
+
 local buf_set_extmark = vim.api.nvim_buf_set_extmark
 
 ---@class fltui.select.kind.register : fltui.select
@@ -16,32 +18,7 @@ M.__index = M
 function M:process_format(index)
     local item = self.items[index]
     local regcont = vim.fn.getreg(item):gsub('\n', '^J')
-    if self.regtype[index] ~= '' and regcont ~= '' then
-        return self.linefmt:format(item, self.regtype[index], regcont)
-    end
-    return ''
-end
-
-function M:process_items(first, last)
-    local lines = self.super.process_items(self, first, last)
-    local e = 1
-    for i = 1, #lines do
-        if lines[i] == '' then
-            lines[e] = lines[i + 1]
-        end
-        if lines[e] ~= '' then
-            e = e + 1
-        end
-    end
-    for i = e, #lines do
-        lines[i] = nil
-    end
-    self._lc = #lines
-    return lines
-end
-
-function M:calc_height()
-    return self._lc or #self.items
+    return self.linefmt:format(item, self.regtype[index] or '', regcont or '')
 end
 
 local function hl(self, linenr, line)
@@ -58,30 +35,60 @@ local function hl(self, linenr, line)
 end
 
 function M:item_highlight(linenr, line)
-    hl(self, linenr, line)
+    if #line > 0 then
+        hl(self, linenr, line)
+    end
     self.super.item_highlight(self, linenr, line)
 end
 
 function M:cursorline_highlight(linenr, line)
-    hl(self, linenr, line)
+    if #line > 0 then
+        hl(self, linenr, line)
+    end
     self.super.cursorline_highlight(self, linenr, line)
 end
 
-function M:open_win(enter)
-    self.super.open_win(self, enter)
+function M:create_win(buf, enter, config)
+    local ui = require('fltui.util')
+    config.row = ui.editor_height()
+    config.col = 0
+    config.width = vim.o.columns
+    config.anchor = 'SW'
+    local win = self.super.create_win(self, buf, enter, config)
 
-    vim.api.nvim_win_set_config(self.win, {
-        anchor = 'SW',
-        relative = 'editor',
-        col = 0,
-        row = require('fltui.util').editor_height(),
-        border = 'single',
+    vim.api.nvim_create_autocmd('TextYankPost', {
+        group = aug,
+        nested = true,
+        callback = function()
+            if not vim.api.nvim_win_is_valid(win) then
+                return true
+            end
+            vim.schedule(function()
+                self:action_reload({ type = 'reload' })
+            end)
+        end,
     })
+
+    return win
+end
+
+function M.add_win_behaviors(win)
+    local ui = require('fltui.util')
+    vim.api.nvim_create_autocmd('WinScrolled', {
+        nested = true,
+        group = ui.augid,
+        callback = function()
+            if not vim.api.nvim_win_is_valid(win) then
+                return true
+            end
+            ui.no_scrolloff(win)
+        end,
+    })
+    ui.close_on_leave(win)
 end
 
 function M:new(items, opts, on_choice, actions)
     local sel = self.super:new(items, opts, on_choice, actions) --[[@as fltui.select.kind.register]]
-
     sel.linefmt = ' "%s  %s  %s'
     sel.custom_index = '%s*".  '
 

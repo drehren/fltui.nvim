@@ -689,6 +689,39 @@ function S:show(enter)
     self:install_actions()
 end
 
+---Adds window behaviors for the specified window.
+---@protected
+---@param win integer The window-ID.
+function S.add_win_behaviors(win)
+    vim.api.nvim_create_autocmd('WinScrolled', {
+        nested = true,
+        group = ui.augid,
+        callback = function()
+            if not win_is_valid(win) then
+                return true
+            end
+            ui.no_scrolloff(win)
+        end,
+    })
+
+    ui.close_on_leave(win)
+    ui.keep_centered(win)
+end
+
+---Create the window that will show the item entry buffer.
+---
+---Should also call `add_win_behaviors()`.
+---@protected
+---@param buf integer The item entry buffer.
+---@param enter boolean `true` to set the window as current, `false` otherwise.
+---@param config vim.api.keyset.win_config Window configuration.
+function S:create_win(buf, enter, config)
+    local win = vim.api.nvim_open_win(buf, enter, config)
+    self.add_win_behaviors(win)
+
+    return win
+end
+
 ---Opens the selection window.
 ---
 ---It is expected that create_buf had been previously called.
@@ -708,7 +741,7 @@ function S:open_win(enter)
     config.col = mfloor((vim.o.columns - config.width) / 2)
     config.row = mfloor((ui.editor_height() - config.height) / 2)
 
-    self.win = vim.api.nvim_open_win(self.buf, enter, config)
+    self.win = self:create_win(self.buf, enter, config)
 
     local winopts = { win = self.win }
     set_option_value('scrolloff', 0, winopts)
@@ -718,20 +751,6 @@ function S:open_win(enter)
     if self.opts.preview_item then
         self:preview_item(self.culrange[1])
     end
-
-    vim.api.nvim_create_autocmd('WinScrolled', {
-        nested = true,
-        group = ui.augid,
-        callback = function()
-            if not win_is_valid(self.win) then
-                return true
-            end
-            ui.no_scrolloff(self.win)
-        end,
-    })
-
-    ui.close_on_leave(self.win)
-    ui.keep_centered(self.win)
 
     vim.api.nvim_win_set_hl_ns(self.win, self.ns)
 
