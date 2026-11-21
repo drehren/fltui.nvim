@@ -54,6 +54,7 @@ function M:create_win(buf, enter, config)
     config.col = 0
     config.width = vim.o.columns
     config.anchor = 'SW'
+    config.border = 'single'
     local win = self.super.create_win(self, buf, enter, config)
 
     vim.api.nvim_create_autocmd('TextYankPost', {
@@ -72,19 +73,17 @@ function M:create_win(buf, enter, config)
     return win
 end
 
-function M.add_win_behaviors(win)
+function M:add_win_behaviors(win)
     local ui = require('fltui.util')
-    vim.api.nvim_create_autocmd('WinScrolled', {
-        nested = true,
-        group = ui.augid,
-        callback = function()
-            if not vim.api.nvim_win_is_valid(win) then
-                return true
-            end
-            ui.no_scrolloff(win)
+    ui.keep_pos(win, { row = ui.editor_height })
+    ui.keep_size(win, {
+        height = function()
+            return self:calc_height()
+        end,
+        width = function()
+            return vim.o.columns
         end,
     })
-    ui.close_on_leave(win)
 end
 
 function M:new(items, opts, on_choice, actions)

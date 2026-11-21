@@ -2,6 +2,7 @@ local ui = require('fltui.util')
 
 local win_is_valid = vim.api.nvim_win_is_valid
 local win_close = vim.api.nvim_win_close
+local win_get_config = vim.api.nvim_win_get_config
 local win_get_height = vim.api.nvim_win_get_height
 
 local buf_get_lines = vim.api.nvim_buf_get_lines
@@ -58,10 +59,19 @@ end
 function M:create_buf()
     M.super.create_buf(self)
 
-    self.fbuf = ui.create_prompt_buf('selection.filter', '> ', function()
-        self.promptcr = true
-        win_close(self.fwin, true)
-    end)
+    self.fbuf = ui.create_prompt_buf(
+        'selection.filter',
+        { prompt = '> ', create = true },
+        function()
+            self.promptcr = true
+            vim.schedule(function()
+                if vim.api.nvim_get_mode().mode:sub(1, 1) ~= 'n' then
+                    vim.cmd.stopinsert()
+                end
+            end)
+            self:select()
+        end
+    )
 
     remove_completers(self.fbuf)
 
@@ -75,11 +85,7 @@ function M:create_buf()
     -- Buffer close without selection
     buf_set_keymap(self.fbuf, 'n', '<ESC>', '', {
         callback = function()
-            if win_is_valid(self.win) then
-                win_close(self.win, true)
-            else
-                win_close(self.fwin, true)
-            end
+            self:select(false)
         end,
     })
     buf_set_keymap(self.fbuf, 'n', 'q', '<ESC>', {})
@@ -100,95 +106,144 @@ function M:create_buf()
     })
 end
 
-function M:open_win(enter)
-    M.super.open_win(self, false)
+local _bs = {
+    { ' ', 'FloatShadowThrough' },
+    { ' ', 'FloatShadow' },
+}
 
-    -- we want the filter + items window to be centered
+local filter_border = {
+    function(bordertbl)
+        local filtertbl = vim.deepcopy(bordertbl)
+        if #filtertbl == 2 then
+            filtertbl[3] = filtertbl[1]
+            filtertbl[4] = filtertbl[2]
+        end
+        if #filtertbl == 4 then
+            filtertbl[8] = filtertbl[4]
+        end
+        filtertbl[5] = ''
+        filtertbl[6] = ''
+        filtertbl[7] = ''
+        return {
+            filtertbl,
+            bordertbl,
+            1,
+        }
+    end,
+    bold = {
+        { '┏', '━', '┓', '┃', '', '', '', '┃' },
+        { '┣', '━', '┫', '┃', '┛', '━', '┗', '┃' },
+        1,
+    },
+    double = {
+        { '╔', '═', '╗', '║', '', '', '', '║' },
+        { '╠', '═', '╣', '║', '╝', '═', '╚', '║' },
+        1,
+    },
+    none = {
+        'none',
+        'none',
+        1,
+        { ' ', ' ', ' ', '', '', '', '', '' },
+    },
+    rounded = {
+        { '╭', '─', '╮', '│', '', '', '', '│' },
+        { '├', '─', '┤', '│', '╯', '─', '╰', '│' },
+        1,
+    },
+    shadow = {
+        { '', '', _bs[1], _bs[2], '', '', '', '' },
+        { ' ', ' ', _bs[2], _bs[2], _bs[2], _bs[2], _bs[1], '' },
+        1,
+    },
+    single = {
+        { '┌', '─', '┐', '│', '', '', '', '│' },
+        { '├', '─', '┤', '│', '┘', '─', '└', '│' },
+        1,
+    },
+    solid = {
+        { ' ', ' ', ' ', ' ', '', '', '', ' ' },
+        'solid',
+        1,
+    },
+}
+filter_border[''] = filter_border.none
+_bs = nil
 
-    local itemswinconf = vim.api.nvim_win_get_config(self.win)
+local _Nb = ('N'):byte(1, 1)
 
-    local totalheight = itemswinconf.height + 2 -- 1 for filter height, 1 for border in between
-
-    local row = (ui.editor_height() - totalheight) / 2
-
-    -- update items window border and position
-    ---@type vim.api.keyset.win_config
-    local conf = {
-        border = { '├', '─', '┤', '│', '╯', '─', '╰', '│' },
-        zindex = 99,
-        title = '',
-        row = row + 2,
-        col = itemswinconf.col,
-        relative = 'editor',
-    }
-    vim.api.nvim_win_set_config(self.win, conf)
+function M:create_win(buf, enter, itemswinconf)
+    local itemsborder = itemswinconf.border or vim.o.winborder or 'none'
+    local borders = filter_border[itemsborder]
+    if not borders then
+        borders = filter_border[1](itemsborder)
+    end
 
     ---@type vim.api.keyset.win_config
     local config = {
+        anchor = itemswinconf.anchor,
+        border = borders[1],
         title = self.opts.prompt,
-        relative = 'editor',
-        row = row,
+        relative = itemswinconf.relative,
         col = itemswinconf.col,
         width = itemswinconf.width,
         height = 1,
         style = 'minimal',
         zindex = itemswinconf.zindex,
         noautocmd = true,
-        border = { '╭', '─', '╮', '│', '', '', '', '│' },
     }
+
+    -- we want the filter on top of selection window
+
+    itemswinconf.border = borders[2]
+    itemswinconf.anchor = itemswinconf.anchor or 'NW'
+    itemswinconf.title = nil
+
+    config.row = 1
+
+    local itemswin = M.super.create_win(self, buf, false, itemswinconf)
+    self:add_win_behaviors(itemswin)
+
     self.fwin = vim.api.nvim_open_win(self.fbuf, enter, config)
     vim.api.nvim_win_set_hl_ns(self.fwin, self.ns)
     vim.api.nvim_set_option_value('scrolloff', 0, { win = self.fwin })
 
-    -- both windows should be centered, calculate correct offsets
-    ui.keep_centered(self.win, { 1, 0 })
-    ui.keep_centered(self.fwin, {
-        function()
-            return (-win_get_height(self.win) - 1) / 2
-        end,
-        0,
-    })
-    ui.close_on_leave_allowed(self.win, self.fwin)
-    ui.close_on_buf_change(self.fwin)
-
-    vim.api.nvim_create_autocmd('WinEnter', {
-        nested = true,
-        group = ui.augid,
-        callback = function()
-            if self.promptcr or not win_is_valid(self.fwin) then
-                return true
-            end
-            local cw = vim.api.nvim_get_current_win()
-            if cw == self.win then
-                if win_is_valid(self.win) then
-                    vim.api.nvim_set_current_win(self.fwin)
-                end
-            elseif cw ~= self.fwin then
-                win_close(self.fwin, true)
-                return true
-            end
+    ui.set_offset(itemswin, {
+        row = function()
+            local eh = ui.editor_height() - 2
+            local wh = win_get_height(itemswin)
+            return math.max(0, wh - eh)
         end,
     })
-
-    vim.api.nvim_create_autocmd('WinClosed', {
-        nested = true,
-        group = ui.augid,
-        pattern = tostring(self.fwin),
-        once = true,
-        callback = function()
-            vim.api.nvim_set_current_win(self.win)
-            if self.promptcr then
-                self:select()
+    ui.keep_pos(self.fwin, {
+        col = function()
+            return win_get_config(itemswin).col
+        end,
+        row = function()
+            local icfg = win_get_config(itemswin)
+            if icfg.anchor:byte(1, 1) == _Nb then
+                return icfg.row - 2
             else
-                win_close(self.win, true)
+                return icfg.row - icfg.height - 2
             end
         end,
     })
+    ui.keep_size(self.fwin, {
+        width = function()
+            return vim.api.nvim_win_get_width(itemswin)
+        end,
+    })
+
+    ui.close_on_leave(self.fwin, { force = true })
+    ui.close_on_leave_allowed(self.fwin, itemswin)
+    ui.close_on_leave_allowed(itemswin, self.fwin)
+
+    vim.api.nvim_set_option_value('winfixbuf', true, { win = self.fwin })
 
     vim.api.nvim_create_autocmd('WinClosed', {
         nested = true,
         group = ui.augid,
-        pattern = tostring(self.win),
+        pattern = tostring(itemswin),
         once = true,
         callback = function()
             vim.cmd.stopinsert()
@@ -202,9 +257,15 @@ function M:open_win(enter)
         group = ui.augid,
         buffer = self.buf,
     }
-    require('fltui.select.keymaps').proxy_motions(self.fbuf, self.win, function()
-        vim.api.nvim_exec_autocmds('CursorMoved', kmopts)
-    end)
+    require('fltui.select.keymaps').proxy_motions(
+        self.fbuf,
+        itemswin,
+        function()
+            vim.api.nvim_exec_autocmds('CursorMoved', kmopts)
+        end
+    )
+
+    return itemswin
 end
 
 function M:show(enter)

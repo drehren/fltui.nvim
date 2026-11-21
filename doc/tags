@@ -15,12 +15,15 @@ fltui.editor_height()	fltui.txt	/*fltui.editor_height()*
 fltui.input	fltui.txt	/*fltui.input*
 fltui.input.input()	fltui.txt	/*fltui.input.input()*
 fltui.keep_centered()	fltui.txt	/*fltui.keep_centered()*
+fltui.keep_pos()	fltui.txt	/*fltui.keep_pos()*
+fltui.keep_size()	fltui.txt	/*fltui.keep_size()*
 fltui.move	fltui.txt	/*fltui.move*
 fltui.movement	fltui.txt	/*fltui.movement*
 fltui.movement.proxy_to()	fltui.txt	/*fltui.movement.proxy_to()*
 fltui.movement.proxy_to_callable()	fltui.txt	/*fltui.movement.proxy_to_callable()*
 fltui.no_scrolloff()	fltui.txt	/*fltui.no_scrolloff()*
 fltui.nvim.txt	fltui.txt	/*fltui.nvim.txt*
+fltui.pos_offset	fltui.txt	/*fltui.pos_offset*
 fltui.scrb	fltui.txt	/*fltui.scrb*
 fltui.scrb.add_vertical_scrollbar()	fltui.txt	/*fltui.scrb.add_vertical_scrollbar()*
 fltui.scrb.update_scrollbar()	fltui.txt	/*fltui.scrb.update_scrollbar()*
@@ -29,6 +32,7 @@ fltui.select-config	fltui.txt	/*fltui.select-config*
 fltui.select.action_map	fltui.txt	/*fltui.select.action_map*
 fltui.select.action_result	fltui.txt	/*fltui.select.action_result*
 fltui.select.extend()	fltui.txt	/*fltui.select.extend()*
+fltui.set_offset()	fltui.txt	/*fltui.set_offset()*
 g:fltui_replace_input	fltui.txt	/*g:fltui_replace_input*
 g:fltui_replace_select	fltui.txt	/*g:fltui_replace_select*
 g:fltui_select_search	fltui.txt	/*g:fltui_select_search*

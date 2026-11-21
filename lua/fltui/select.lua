@@ -341,13 +341,15 @@ function S:preview_item(linenr)
             zindex = 98,
             noautocmd = true,
         })
+        vim.api.nvim_set_option_value('winfixbuf', true, { win = self.pwin })
+
         ui.close_on_leave_allowed(self.win, self.pwin)
         vim.api.nvim_create_autocmd('WinClosed', {
             once = true,
             nested = true,
             pattern = tostring(self.win),
             callback = function()
-                if vim.api.nvim_win_is_valid(self.pwin) then
+                if win_is_valid(self.pwin) then
                     vim.api.nvim_win_close(self.pwin, true)
                 end
             end,
@@ -627,6 +629,8 @@ end
 ---Creates the selection buffer
 ---@protected
 function S:create_buf()
+    self.buf = ui.create_wipe_buf('selection', { create = true })
+
     buf_set_keymap(self.buf, 'n', '<CR>', '', {
         callback = function()
             self:select()
@@ -643,21 +647,50 @@ function S:create_buf()
     end
 
     -- Buffer close without selection
-    buf_set_keymap(self.buf, 'n', '<ESC>', '<cmd>q!<cr>', {})
+    buf_set_keymap(self.buf, 'n', '<ESC>', '', {
+        callback = function()
+            self:select(false)
+        end,
+    })
     buf_set_keymap(self.buf, 'n', 'q', '<ESC>', {})
     buf_set_keymap(self.buf, 'n', '<C-C>', '<ESC>', {})
+
+    vim.api.nvim_create_autocmd('CursorMoved', {
+        group = ui.augid,
+        buffer = self.buf,
+        callback = function()
+            if not win_is_valid(self.win) then
+                return true
+            end
+            self:buf_cul(win_get_cursor(self.win)[1])
+            self:buf_set_hl()
+        end,
+    })
+    vim.api.nvim_create_autocmd('WinScrolled', {
+        group = ui.augid,
+        buffer = self.buf,
+        nested = true,
+        callback = function()
+            if not win_is_valid(self.win) then
+                return true
+            end
+            ui.no_scrolloff(self.win)
+        end,
+    })
 end
 
 ---Performs the selection of the selected item
 ---@protected
-function S:select()
-    local selected_index
-    local nr = vim.v.count
-    if nr > 0 and nr <= vim.api.nvim_buf_line_count(self.buf) then
-        selected_index = nr
-    else
-        local row = win_get_cursor(self.win)[1]
-        selected_index = self:item_index(row)
+function S:select(selected_index)
+    vim.api.nvim_set_current_win(self.win)
+    if selected_index == nil then
+        local nr = vim.v.count
+        if nr > 0 and nr <= vim.api.nvim_buf_line_count(self.buf) then
+            selected_index = nr
+        else
+            local row = win_get_cursor(self.win)[1]
+            selected_index = self:item_index(row)
+        end
     end
     ---On close
     vim.api.nvim_create_autocmd('BufWipeout', {
@@ -692,19 +725,7 @@ end
 ---Adds window behaviors for the specified window.
 ---@protected
 ---@param win integer The window-ID.
-function S.add_win_behaviors(win)
-    vim.api.nvim_create_autocmd('WinScrolled', {
-        nested = true,
-        group = ui.augid,
-        callback = function()
-            if not win_is_valid(win) then
-                return true
-            end
-            ui.no_scrolloff(win)
-        end,
-    })
-
-    ui.close_on_leave(win)
+function S:add_win_behaviors(win)
     ui.keep_centered(win)
 end
 
@@ -717,7 +738,22 @@ end
 ---@param config vim.api.keyset.win_config Window configuration.
 function S:create_win(buf, enter, config)
     local win = vim.api.nvim_open_win(buf, enter, config)
-    self.add_win_behaviors(win)
+    vim.api.nvim_set_option_value('winfixbuf', true, { win = win })
+    ui.close_on_leave(win)
+
+    vim.api.nvim_create_autocmd('WinClosed', {
+        nested = true,
+        group = ui.augid,
+        pattern = tostring(win),
+        once = true,
+        callback = function()
+            require('fltui.debounce').to_safestate(function()
+                self.on_choice(nil, nil)
+            end)
+        end,
+    })
+
+    self:add_win_behaviors(win)
 
     return win
 end
@@ -741,55 +777,34 @@ function S:open_win(enter)
     config.col = mfloor((vim.o.columns - config.width) / 2)
     config.row = mfloor((ui.editor_height() - config.height) / 2)
 
+    vim.api.nvim_create_autocmd('ModeChanged', {
+        group = ui.augid,
+        buffer = self:get_action_buffer(),
+        callback = function()
+            local mode = vim.api.nvim_get_mode().mode
+            if not mode:match('[vV]') then
+                self.culrange[1] = win_get_cursor(self.win)[1]
+                self.culrange[2] = nil
+            else
+                self.culrange[2] = self.culrange[1]
+            end
+            self:buf_set_hl()
+        end,
+    })
+
     self.win = self:create_win(self.buf, enter, config)
 
     local winopts = { win = self.win }
     set_option_value('scrolloff', 0, winopts)
 
-    -- open before as user may use bufload or bufnr which trigger BufEnter
-    -- which will close our window
-    if self.opts.preview_item then
-        self:preview_item(self.culrange[1])
-    end
-
     vim.api.nvim_win_set_hl_ns(self.win, self.ns)
 
-    vim.api.nvim_create_autocmd('ModeChanged', {
-        group = ui.augid,
-        pattern = '[vV]:*',
-        callback = function()
-            if not win_is_valid(self.win) then
-                return true
-            end
-            self.culrange[1] = win_get_cursor(self.win)[1]
-            self.culrange[2] = nil
-            self:buf_set_hl()
-        end,
-    })
-
-    vim.api.nvim_create_autocmd('ModeChanged', {
-        group = ui.augid,
-        pattern = '*:[vV]',
-        callback = function()
-            if not win_is_valid(self.win) then
-                return true
-            end
-            self.culrange[2] = self.culrange[1]
-            self:buf_set_hl()
-        end,
-    })
-
-    vim.api.nvim_create_autocmd('CursorMoved', {
-        group = ui.augid,
-        buffer = self.buf,
-        callback = function()
-            if not win_is_valid(self.win) then
-                return true
-            end
-            self:buf_cul(win_get_cursor(self.win)[1])
-            self:buf_set_hl()
-        end,
-    })
+    if self.opts.preview_item then
+        local evig = vim.o.eventignore
+        vim.o.eventignore = 'all'
+        self:preview_item(self.culrange[1])
+        vim.o.eventignore = evig
+    end
 end
 
 ---Gets the buffer to which the actions should be mapped to
@@ -850,7 +865,7 @@ function S:new(items, opts, on_choice, actions)
     ---@type fltui.select
     local sel = {
         win = -1,
-        buf = ui.create_wipe_buf('selection'),
+        buf = -1,
         linewidth = require('fltui.heap').new(function(lhs, rhs)
             return lhs[1] > rhs[1]
         end),

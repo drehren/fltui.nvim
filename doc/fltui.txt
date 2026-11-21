@@ -460,25 +460,32 @@ fltui.editor_height()				       *fltui.editor_height()*
       (`integer`) Editor rows without 'statusline' row or 'cmdheight'.
 
 
-fltui.create_wipe_buf({name}, {buftype})	     *fltui.create_wipe_buf()*
+fltui.create_wipe_buf({name}, {opts})		     *fltui.create_wipe_buf()*
     Creates a scratch buffer, with the specified {name} and 'buftype'.
 
     Parameters: ~
-      • {name}	  (`string`) Buffer name.
-      • {buftype} (`string?`) Set 'buftype' for the specified buffer.
+      • {name}	(`string`) Buffer name.
+      • {opts}	(`table?`) Additional options.
+		• {buftype}? (`string`) Set 'buftype' for the specified
+		buffer.
+		• {creae}? (`boolean`) If `true`, force buffer creation.
+		If {name} is in use, this will create a unique name.
 
     Return: ~
       (`intger`) Buffer-id.
 
 
 						   *fltui.create_prompt_buf()*
-fltui.create_prompt_buf({name}, {prompt}, {on_cr})
+fltui.create_prompt_buf({name}, {opts}, {on_cr})
     Creates a prompt buffer, with the specified {name}, {prompt} (see
     |prompt_setprompt()|) and {callback} (see |prompt_setcallback()|).
 
     Parameters: ~
       • {name}	    (`string`) Prompt buffer name.
-      • {prompt}    (`string?`) Prompt buffer prompt. See |prompt_setprompt()|.
+      • {opts}	    (`table?`) Prompt buffer options.
+		    • {prompt}? (`string`) Prompt. See |prompt_setprompt()|.
+		    • {create}? (`boolean`) If `true`, force buffer creation.
+		    If {name} is in use, this will create a unique name.
       • {callback}  (`function?`) Prompt buffer callback. See
 		    |prompt_setcallback()|.
 
@@ -528,6 +535,12 @@ fltui.close_on_buf_change({win}, {opts})	 *fltui.close_on_buf_change()*
       • {opts}	  (`table?`) Additional options. Keys:
 		  • force: (`boolean?`) Force close buffer on window close.
 
+*fltui.pos_offset*
+
+    Fields ~
+      • {height}  (`(number|fun(): number)?`) Row position offset.
+      •	{row}	  (`(number|fun(): number)?`) Column position offset.
+
 
 fltui.center({win}, {offset})				      *fltui.center()*
     Centers the specified floating {win} regarding its relative value. If
@@ -535,21 +548,46 @@ fltui.center({win}, {offset})				      *fltui.center()*
 
     Parameters: ~
       • {win}	  (`integer`) |window-ID| to center.
-      • {offset}  (`[number|fun(): number, number|fun(): number]?`) A 2-tuple
-		  indicating how to offset the window after centering it.
+      • {offset}  (`fltui.pos_offset?`) Position offset table indicating how
+		  to offset the window after centering it.
     
-    Overloads: ~
-      •	`fun(wins: integer[], offsets: [number|fun(): number, number|fun(): number][])`
-
 
 fltui.keep_centered({win}, {offset})		       *fltui.keep_centered()*
-    Configures autocommands to keep the specified floating window centered for
-    resize events.
+    Keeps the specified window centered after |WinResized-event|s.
 
     Parameters: ~
       • {win}	  (`integer`) |window-ID| to center.
-      • {offset}  (`[number|fun(): number, number|fun(): number]?`) A 2-tuple
-		  indicating how to offset the window after centering it.
+      • {offset}  (`fltui.pos_offset?`) Position offset table indicating how
+		  to offset the window after centering it.
+
+
+fltui.keep_pos({win}, {pos})				    *fltui.keep_pos()*
+    Keeps the window in the specified relative position after
+    |WinResized-event|s.
+
+    Parameters: ~
+      • {win}	(`integer`) |window-ID| to apply.
+      • {pos}	(`fltui.relative_pos`) Table with relative position values.
+		See |fltui.relative_pos|.
+
+fltui.keep_size({win}, {size})				   *fltui.keep_size()*
+    Keeps the specified window size after |WinResized-event|s.
+
+    Parameters: ~
+      • {win}   (`integer`) |window-ID| to apply.
+      • {size}	(`fltui.relative_size`) Table with relative size values. See
+		|fltui.relative_size|.
+	    
+
+fltui.set_offset({win}, {offset})			  *fltui.set_offset()*
+    Sets a position offset for window {win} during |WinResized-event| events.
+
+    This offset is applied for windows used in |fltui.keep_centered()| or
+    |fltui.keep_pos()|.
+
+    Parameters: ~
+      •	{win}	  (`integer`) |window-ID| to add the offset to.
+      * {offset}  (`fltui.pos_offset`) Offset values to apply.
 
 
 fltui.no_scrolloff({win})				*fltui.no_scrolloff()*

@@ -161,7 +161,7 @@ function M.input(opts, on_confirm)
 
     local promptwin
     local auwinenterid
-    local promptbuf = ui.create_prompt_buf('input', opts.prompt, function(text)
+    local promptbuf = ui.create_prompt_buf('input', opts, function(text)
         vim.api.nvim_del_autocmd(auwinenterid)
         debounce(function()
             if not vim.startswith(vim.api.nvim_get_mode().mode, 'n') then
