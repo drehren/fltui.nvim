@@ -563,6 +563,8 @@ end
 function S:action_close()
     local w = self.win
     vim.schedule(function()
+        -- do not call on close when user sent close
+        self.on_choice = function() end
         if win_is_valid(w) then
             vim.api.nvim_win_close(w, true)
         end
